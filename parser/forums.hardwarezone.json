@@ -1,0 +1,30 @@
+{
+    "name": "hardwarezone",
+    "url": "http://forums.hardwarezone.com.sg",
+    "levels":[
+        {
+            "target": "forum",
+            "queries": {
+                "context": "#forum table:nth-of-type(3) tbody[id^=\"collapseobj_forumbit\"] tr",
+                "link": "td.alt1Active a"
+            }
+        },
+        {
+            "target": "thread",
+            "queries": {
+                "context": "#threadslist tbody[id^=\"threadbits_forum_\"] tr",
+                "author": "td:nth-of-type(3) div.smallfont span",
+                "link": "td:nth-of-type(3) a",
+                "last": ".pagination ul li.prevnext a"
+            }
+        },{
+            "target": "post",
+            "queries": {
+                "context": "#posts table[id^=\"post\"]",
+                "author": "tr:nth-of-type(2) td.alt2 div[id^=\"postmenu_\"] a",
+                "post": "tr:nth-of-type(2) td.alt1 div[id^=\"post_message_\"]",
+                "last": ".pagination ul li.prevnext a"
+            }
+        }
+    ]
+}
