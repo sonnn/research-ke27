@@ -1,9 +1,9 @@
 # research-ke27
 
 specs:
-  - Only run 10 page in one forum
-  - Only run 10 page in one thread
-  - Mutil threading
+  - Only crawl all thread in the first 10 pages in one forum
+  - Only crawl all post in the first 10 pages in one thread
+  - Mutil threading ( 3 threads )
 
 run command:
 
