@@ -30,7 +30,7 @@ class Crawler():
 
     # push url to queue
     def push_queue(self, obj_push, level, parrent_id=None, parrent_url=None):
-        if parrent_url in self.queued or level == self.endLevel:
+        if parrent_url in self.queued or level + 1 == self.endLevel:
             return
 
         if obj_push.get("last") != None and len(obj_push.get("last")) > 0:

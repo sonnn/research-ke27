@@ -7,4 +7,4 @@ specs:
 
 run command:
 
-``` python main.py ```
+``` python crawler.py ```
