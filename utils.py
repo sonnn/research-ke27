@@ -5,7 +5,7 @@ import sqlite3
 
 class Utils():
     def __init__(self, options):
-        self.conn = sqlite3.connect("crawl_db")
+        self.conn = sqlite3.connect("crawl_db", check_same_thread=False)
         self.options = options
 
     def prepare_link(self, link):

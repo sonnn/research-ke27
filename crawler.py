@@ -1,14 +1,15 @@
 # dom parser
 from bs4 import BeautifulSoup as Soup
 from Queue import Queue
-from threading import Thread
 from log import log
 from utils import Utils
 
+import threading
 import requests
 import json
 import re
 import pdb
+import time
 # import urlparse
 
 class Crawler():
@@ -19,27 +20,36 @@ class Crawler():
         self.queue = Queue()
         self.utils = Utils(options)
         self.options = options
-        self.maxPage = 10
-        self.numberOfSpidies = 3
+        self.maxPagePost = self.options["maxPagePost"] if "maxPagePost" in self.options else 10
+        self.maxPageThread = self.options["maxPageThread"] if "maxPageThread" in self.options else 10
+        self.numberOfSpidies = self.options["numberOfSpidies"] if "numberOfSpidies" in self.options else 4
+        self.endLevel = self.options["endLevel"] if "endLevel" in self.options else 2
+        self.exception = []
         self.queued = []
-        self.exception = [
-        ]
+        self.started = False
 
+    # push url to queue
     def push_queue(self, obj_push, level, parrent_id=None, parrent_url=None):
-        if parrent_url in self.queued:
+        if parrent_url in self.queued or level == self.endLevel:
             return
 
         if obj_push.get("last") != None and len(obj_push.get("last")) > 0:
             last_page_url = self.utils.prepare_link(obj_push.get("last").get("href"))
             last_page = re.findall("(\d+)\.html", last_page_url)[0]
-            last_page = int(last_page) if int(last_page) < self.maxPage + 1 else self.maxPage + 1
+
+            # max pages of forum or thread
+            if level == 1:
+                last_page = int(last_page) if int(last_page) < self.maxPageThread + 1 else self.maxPageThread + 1
+            elif level == 2:
+                last_page = int(last_page) if int(last_page) < self.maxPagePost + 1 else self.maxPagePost + 1
 
             for p in range(2, last_page):
                 _url = re.sub("(\d+)\.html", str(p) + ".html", last_page_url)
                 self.queued.append(_url)
                 if self.utils.check_db_link({"level": level, "url": _url}) == None:
-                    self.queue.put(self.crawl(_url, level, parrent_id))
+                    self.queue.put({ "url": _url, "level": level, "parrent_id": parrent_id })
 
+    # push data to db
     def push_db(self, obj_push, level, parrent_id=None, parrent_url=None):
         if obj_push == None:
             return
@@ -65,7 +75,7 @@ class Crawler():
                     self.log("[Push]" + forum_url , ["forum"])
 
                 # push to queue
-                self.queue.put(self.crawl(forum_url, level + 1, forum_id))
+                self.queue.put({ "url": forum_url, "level": level + 1, "parrent_id": forum_id })
 
         elif level == 1:
             # threads
@@ -95,7 +105,7 @@ class Crawler():
 
             # push to queue
             if thread_url not in self.exception:
-                self.queue.put(self.crawl(thread_url, level + 1, thread_id))
+                self.queue.put({ "url": thread_url, "level": level + 1, "parrent_id": thread_id})
                 self.push_queue(obj_push, level, parrent_id, parrent_url)
 
         elif level == 2:
@@ -118,10 +128,8 @@ class Crawler():
             # push queue
             self.push_queue(obj_push, level, parrent_id, parrent_url)
 
-
     # parse html
     def parse_text(self, html, level, parrent_id=None, parrent_url=None):
-
         queries = self.options.get("levels")[level].get("queries")
 
         # get context to search
@@ -143,41 +151,44 @@ class Crawler():
                     self.push_db(obj_push, level, parrent_id, parrent_url)
 
     # crawl html
-    def crawl(self, url=None, level=None, parrent_id=None):
+    def crawl(self, args=None):
+        print threading.current_thread().name
+        if args == None:
+            args = {}
+            args["url"] = self.options.get("url")
+            args["level"] = 0
+            args["parrent_id"] = None
+
         # check max level
-        if level > len(self.options.get("levels")) - 1:
+        if args != None and args["level"] > len(self.options.get("levels")) - 1:
             return
 
         # get html
-        if url is None:
-            url = self.options.get("url")
-
-        if level is None:
-            level = 0
-
-        req = requests.get(url)
+        req = requests.get(args["url"])
 
         # check fail
         if req.status_code != 200:
-            self.log("[Request][Fail] " + url)
+            self.log("[Request][Fail] " + args["url"])
             return []
 
-        self.log("[Success] " + url, ["request"])
+        self.log("[Success] " + args["url"], ["request"])
 
         # if not fail parse html to object
-        self.parse_text(req.text, level, parrent_id, url)
+        self.parse_text(req.text, args["level"], args["parrent_id"], args["url"])
 
+    # worker/spider
     def spidey(self):
         while True:
             item = self.queue.get()
-            do_work(item)
+            self.crawl(item)
             self.queue.task_done()
 
+    # summon spiders
     def spawn_spidies(self):
         print "********** Start to crawl **********"
 
-        for spidey in range(self.numberOfSpidies):
-            t = Thread(target=spidey)
+        for s in range(self.numberOfSpidies):
+            t = threading.Thread(target=self.spidey)
             t.daemon = True
             t.start()
 
@@ -187,3 +198,11 @@ class Crawler():
 
         # done ?
         print "**********  Done   crawl  **********"
+
+if __name__ == '__main__':
+
+    with open('parser/forums.hardwarezone.json') as config_file:
+        config_json = json.load(config_file);
+
+    crl = Crawler(config_json)
+    crl.spawn_spidies()
