@@ -1,2 +1,3 @@
 *.pyc
-/frontend/libs
+/public/libs
+/node_modules

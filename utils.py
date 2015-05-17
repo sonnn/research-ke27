@@ -42,15 +42,15 @@ class Utils():
     def push_forum(self, forum):
         if forum != None:
             cursor = self.conn.cursor();
-            cursor.execute("insert into crawl_forum values(NULL, ?, ?, ?)",
-                (forum["id"], forum["url"], forum["name"]));
+            cursor.execute("insert into crawl_forum values(NULL, ?, ?, ?, ?, ?, NULL)",
+                (forum["id"], forum["url"], forum["name"], forum["num_threads"], forum["num_posts"]));
             self.conn.commit()
 
     def push_thread(self, thread):
         if thread != None:
             cursor = self.conn.cursor();
-            cursor.execute("insert into crawl_thread values(NULL, ?, ?, ?, ?, ?)",
-                (thread["id"], thread["name"], thread["url"], thread["author"], thread["forum_id"]));
+            cursor.execute("insert into crawl_thread values(NULL, ?, ?, ?, ?, ?, ?, ?)",
+                (thread["id"], thread["name"], thread["url"], thread["author"], thread["forum_id"], thread["replies"], thread["views"]));
             self.conn.commit()
 
     def push_post(self, post):

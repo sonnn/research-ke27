@@ -10,6 +10,7 @@ import json
 import re
 import pdb
 import time
+import sys
 # import urlparse
 
 class Crawler():
@@ -22,15 +23,15 @@ class Crawler():
         self.options = options
         self.maxPagePost = self.options["maxPagePost"] if "maxPagePost" in self.options else 10
         self.maxPageThread = self.options["maxPageThread"] if "maxPageThread" in self.options else 10
-        self.numberOfSpidies = self.options["numberOfSpidies"] if "numberOfSpidies" in self.options else 4
-        self.endLevel = self.options["endLevel"] if "endLevel" in self.options else 2
+        self.numberOfSpidies = self.options["numberOfSpidies"] if "numberOfSpidies" in self.options else 2
+        self.endLevel = self.options["endLevel"] if "endLevel" in self.options else 3
         self.exception = []
         self.queued = []
         self.started = False
 
     # push url to queue
     def push_queue(self, obj_push, level, parrent_id=None, parrent_url=None):
-        if parrent_url in self.queued or level + 1 == self.endLevel:
+        if parrent_url in self.queued:
             return
 
         if obj_push.get("last") != None and len(obj_push.get("last")) > 0:
@@ -58,6 +59,11 @@ class Crawler():
             # forums
             forum_link = obj_push.get("link")[0]
             forum_url = forum_link.get("href")
+            forum_num_thread = obj_push.get("num_threads")[0].getText()
+            forum_num_post = obj_push.get("num_posts")[0].getText()
+
+            forum_num_thread = int(forum_num_thread.replace(',','')) if forum_num_thread != '-' else 0
+            forum_num_post = int(forum_num_post.replace(',','')) if forum_num_post != '-' else 0
 
             # check the url format only accept "/" or "http://forums.hardwarezone.com.sg"
             if re.match("^\/|^"+ self.options.get("url"), forum_url) != None:
@@ -70,12 +76,15 @@ class Crawler():
                     self.utils.push_forum({
                         "id": forum_id,
                         "url": forum_url,
-                        "name": forum_name
+                        "name": forum_name,
+                        "num_threads": forum_num_thread,
+                        "num_posts": forum_num_post
                     })
                     self.log("[Push]" + forum_url , ["forum"])
 
                 # push to queue
-                self.queue.put({ "url": forum_url, "level": level + 1, "parrent_id": forum_id })
+                if int(level) <= int(self.endLevel):
+                    self.queue.put({ "url": forum_url, "level": level + 1, "parrent_id": forum_id })
 
         elif level == 1:
             # threads
@@ -84,6 +93,11 @@ class Crawler():
             thread_name = thread_link.getText()
             thread_url = thread_link.get("href")
             thread_author = thread_author_ctx.getText()
+            thread_replies = obj_push.get("replies")[0].getText()
+            thread_views = obj_push.get("views")[0].getText()
+
+            thread_replies = int(thread_replies.replace(',','')) if thread_replies != '-' else 0
+            thread_views = int(thread_views.replace(',','')) if thread_views != '-' else 0
 
             if len(re.findall("(\d+)\.html", thread_url)) == 0:
                 self.log("Thread without id", ["error"])
@@ -99,14 +113,17 @@ class Crawler():
                     "name": thread_name,
                     "url": thread_url,
                     "author": thread_author,
-                    "forum_id": parrent_id
+                    "forum_id": parrent_id,
+                    "replies": thread_replies,
+                    "views": thread_views
                 })
                 self.log("[Push] " + thread_url, ["thread"])
 
             # push to queue
-            if thread_url not in self.exception:
+            if thread_url not in self.exception and int(level) <= int(self.endLevel):
                 self.queue.put({ "url": thread_url, "level": level + 1, "parrent_id": thread_id})
-                self.push_queue(obj_push, level, parrent_id, parrent_url)
+
+            self.push_queue(obj_push, level, parrent_id, parrent_url)
 
         elif level == 2:
             # post
@@ -126,7 +143,8 @@ class Crawler():
                 self.log("[Push] " + post_id, ["post"])
 
             # push queue
-            self.push_queue(obj_push, level, parrent_id, parrent_url)
+            if int(level) <= int(self.endLevel):
+                self.push_queue(obj_push, level, parrent_id, parrent_url)
 
     # parse html
     def parse_text(self, html, level, parrent_id=None, parrent_url=None):
@@ -152,7 +170,7 @@ class Crawler():
 
     # crawl html
     def crawl(self, args=None):
-        print threading.current_thread().name
+
         if args == None:
             args = {}
             args["url"] = self.options.get("url")
@@ -160,7 +178,10 @@ class Crawler():
             args["parrent_id"] = None
 
         # check max level
-        if args != None and args["level"] > len(self.options.get("levels")) - 1:
+        if int(args["level"]) > len(self.options.get("levels")) - 1:
+            return
+
+        if int(args["level"]) > int(self.endLevel):
             return
 
         # get html
@@ -169,7 +190,7 @@ class Crawler():
         # check fail
         if req.status_code != 200:
             self.log("[Request][Fail] " + args["url"])
-            return []
+            return
 
         self.log("[Success] " + args["url"], ["request"])
 
@@ -201,8 +222,37 @@ class Crawler():
 
 if __name__ == '__main__':
 
-    with open('parser/forums.hardwarezone.json') as config_file:
+    configPath = "parser/forums.hardwarezone.json"
+    deepLevel = 2
+    startUrl = "http://forums.hardwarezone.com.sg"
+    startLevel = 0
+
+    try:
+        configPath = sys.argv[1]
+    except IndexError:
+        print "No config path"
+
+    try:
+        deepLevel = sys.argv[2]
+    except IndexError:
+        print "No end level"
+
+    try:
+        startUrl = sys.argv[3]
+    except IndexError:
+        print "No start url"
+
+    try:
+        startLevel = sys.argv[4]
+    except IndexError:
+        print "No start level"
+
+    with open(configPath) as config_file:
         config_json = json.load(config_file);
+
+    config_json["endLevel"] = deepLevel
+    config_json["startUrl"] = startUrl
+    config_json["startLevel"] = startLevel
 
     crl = Crawler(config_json)
     crl.spawn_spidies()

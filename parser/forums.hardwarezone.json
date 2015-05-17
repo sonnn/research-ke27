@@ -6,7 +6,9 @@
             "target": "forum",
             "queries": {
                 "context": "#forum table:nth-of-type(3) tbody[id^=\"collapseobj_forumbit\"] tr",
-                "link": "td.alt1Active a"
+                "link": "td.alt1Active div:nth-of-type(1) a",
+                "num_threads": "td:nth-of-type(4)",
+                "num_posts": "td:nth-of-type(5)"
             }
         },
         {
@@ -15,7 +17,9 @@
                 "context": "#threadslist tbody[id^=\"threadbits_forum_\"] tr",
                 "author": "td:nth-of-type(3) div.smallfont span",
                 "link": "td:nth-of-type(3) a",
-                "last": ".pagination ul li.prevnext a"
+                "last": ".pagination ul li.prevnext a",
+                "replies": "td:nth-of-type(5)",
+                "views": "td:nth-of-type(6)"
             }
         },{
             "target": "post",
