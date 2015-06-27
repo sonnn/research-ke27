@@ -59,3 +59,27 @@ class Utils():
             cursor.execute("insert into crawl_post values(NULL, ?, ?, ?, NULL, ?, ?)",
                 (post["id"], post["author"], post["text"], post["thread_id"], post["parrent_url"]));
             self.conn.commit()
+
+    def get_post(self, obj):
+        if obj != None:
+            cursor = self.conn.cursor()
+            results = []
+            #string_to_remove = ["\\n", "\\r", "\\t", "\\f"]
+            for row in cursor.execute("SELECT post_id, post_author, post_content FROM crawl_post WHERE thread_id = ?", (obj.get("thread_id"),)):
+                '''
+                print re.sub('[\r\n]', ' ', row[2])
+                tempStr = str(row)
+                # remove special character
+                for ch in string_to_remove:
+                    if ch in tempStr:
+                        tempStr = tempStr.replace(ch, ' ')
+                # remove non-character character
+                tempStr = re.sub('[^a-zA-Z0-9\.\, ]', '', tempStr)
+                results.append(tempStr[1:]) #remove u character at begining of string
+                '''
+                tempList = list(row)
+                tempList[2] = re.sub('[\r\n\t\f]', ' ', row[2])
+                results.append(tempList)
+            return results
+        else:
+            return None
